@@ -45,16 +45,14 @@ namespace SilentSOund
             waveOut.Init(audioPlayer);
             waveOut.Play();
             waveOut.PlaybackStopped += OnPlaybackStopped;
+        }
 
-            void OnPlaybackStopped(object sender, StoppedEventArgs e)
-            {
-                // Reset the audio player to the start
-                audioPlayer.Position = 0;
-
-                // Reinitialize and play
-                waveOut.Init(audioPlayer);
-                waveOut.Play();
-            }
+        private void OnPlaybackStopped(object sender, StoppedEventArgs e)
+        {
+            // Reset the audio player to the start
+            audioPlayer.Position = 0;
+            // Reinitialize and play
+            waveOut.Play();
         }
 
         private void Maximize()
@@ -67,6 +65,7 @@ namespace SilentSOund
         {
             // Properly dispose the resources
             waveOut?.Stop();
+            waveOut.PlaybackStopped -= OnPlaybackStopped; // Desanexar o manipulador de eventos
             waveOut?.Dispose();
             audioPlayer?.Dispose();
 
@@ -90,4 +89,3 @@ namespace SilentSOund
         }
     }
 }
-
