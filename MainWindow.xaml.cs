@@ -10,8 +10,7 @@ namespace SilentSOund
     public partial class MainWindow : Window
     {
         private NotifyIcon notifyIcon;
-        private AudioFileReader currentAudioPlayer;
-        private AudioFileReader nextAudioPlayer;
+        private AudioFileReader audioPlayer;
         private WaveOut waveOut;
 
         private const string soundName = "silent_audio.mp3";
@@ -20,7 +19,7 @@ namespace SilentSOund
         {
             InitializeComponent();
             InitializeNotifyIcon();
-            InitializeAudioPlayers();
+            InitializeAudioPlayer();
 
             Hide();
             Closing += MainWindow_Closing;
@@ -38,30 +37,23 @@ namespace SilentSOund
             notifyIcon.Click += (sender, e) => Maximize();
         }
 
-        private void InitializeAudioPlayers()
+        private void InitializeAudioPlayer()
         {
-            nextAudioPlayer = new AudioFileReader(soundName);
-            currentAudioPlayer = nextAudioPlayer;
+            audioPlayer = new AudioFileReader(soundName);
             waveOut = new WaveOut();
 
-            waveOut.Init(currentAudioPlayer);
+            waveOut.Init(audioPlayer);
             waveOut.Play();
             waveOut.PlaybackStopped += OnPlaybackStopped;
 
-            void OnPlaybackStopped(object? sender, StoppedEventArgs e)
+            void OnPlaybackStopped(object sender, StoppedEventArgs e)
             {
-                waveOut.Dispose();
-                currentAudioPlayer.Dispose();
+                // Reset the audio player to the start
+                audioPlayer.Position = 0;
 
-                currentAudioPlayer = nextAudioPlayer;
-                nextAudioPlayer.Dispose();
-
-                waveOut = new WaveOut();
-                waveOut.Init(currentAudioPlayer);
+                // Reinitialize and play
+                waveOut.Init(audioPlayer);
                 waveOut.Play();
-                waveOut.PlaybackStopped += OnPlaybackStopped;
-
-                nextAudioPlayer = new AudioFileReader(soundName);
             }
         }
 
@@ -73,12 +65,13 @@ namespace SilentSOund
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            waveOut.Stop();
-            waveOut.Dispose();
-            currentAudioPlayer.Dispose();
-            nextAudioPlayer.Dispose();
+            // Properly dispose the resources
+            waveOut?.Stop();
+            waveOut?.Dispose();
+            audioPlayer?.Dispose();
 
             notifyIcon.Click -= (sender, eventArgs) => Maximize();
+            notifyIcon.Dispose();
             Closing -= MainWindow_Closing;
         }
 
@@ -97,3 +90,4 @@ namespace SilentSOund
         }
     }
 }
+
