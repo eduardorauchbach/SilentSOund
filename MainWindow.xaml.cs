@@ -1,5 +1,6 @@
 ﻿using NAudio.Wave;
 using System;
+using System.Runtime;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
@@ -11,7 +12,7 @@ namespace SilentSOund
     {
         private NotifyIcon notifyIcon;
         private AudioFileReader audioPlayer;
-        private WaveOut waveOut;
+        private WaveOutEvent waveOut;
 
         private const string soundName = "silent_audio.mp3";
 
@@ -30,29 +31,37 @@ namespace SilentSOund
             string iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mute.ico");
             this.Icon = new BitmapImage(new Uri(iconPath));
 
-            notifyIcon = new NotifyIcon();
-            notifyIcon.Icon = new System.Drawing.Icon("mute.ico");
-            notifyIcon.Visible = true;
-            notifyIcon.BalloonTipText = "Maximize";
+            notifyIcon = new NotifyIcon
+            {
+                Icon = new System.Drawing.Icon("mute.ico"),
+                Visible = true,
+                BalloonTipText = "Maximize"
+            };
             notifyIcon.Click += (sender, e) => Maximize();
         }
 
         private void InitializeAudioPlayer()
         {
-            audioPlayer = new AudioFileReader(soundName);
-            waveOut = new WaveOut();
+            using (new LowLatencyMode())
+            {
+                audioPlayer = new AudioFileReader(soundName);
+                waveOut = new WaveOutEvent();
 
-            waveOut.Init(audioPlayer);
-            waveOut.Play();
-            waveOut.PlaybackStopped += OnPlaybackStopped;
+                waveOut.Init(audioPlayer);
+                waveOut.Play();
+                waveOut.PlaybackStopped += OnPlaybackStopped;
+            }
         }
 
         private void OnPlaybackStopped(object sender, StoppedEventArgs e)
         {
-            // Reset the audio player to the start
-            audioPlayer.Position = 0;
-            // Reinitialize and play
-            waveOut.Play();
+            using (new LowLatencyMode())
+            {
+                // Reset the audio player to the start
+                audioPlayer.Position = 0;
+                // Reinitialize and play
+                waveOut.Play();
+            }
         }
 
         private void Maximize()
@@ -65,13 +74,18 @@ namespace SilentSOund
         {
             // Properly dispose the resources
             waveOut?.Stop();
-            waveOut.PlaybackStopped -= OnPlaybackStopped; // Desanexar o manipulador de eventos
+            waveOut.PlaybackStopped -= OnPlaybackStopped;
             waveOut?.Dispose();
             audioPlayer?.Dispose();
 
             notifyIcon.Click -= (sender, eventArgs) => Maximize();
             notifyIcon.Dispose();
             Closing -= MainWindow_Closing;
+
+            // Force garbage collection
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e)
@@ -86,6 +100,22 @@ namespace SilentSOund
                 Hide();
                 notifyIcon.ShowBalloonTip(2000);
             }
+        }
+    }
+
+    public class LowLatencyMode : IDisposable
+    {
+        private readonly GCLatencyMode _oldMode;
+
+        public LowLatencyMode()
+        {
+            _oldMode = GCSettings.LatencyMode;
+            GCSettings.LatencyMode = GCLatencyMode.LowLatency;
+        }
+
+        public void Dispose()
+        {
+            GCSettings.LatencyMode = _oldMode;
         }
     }
 }
